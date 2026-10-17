@@ -1,0 +1,1599 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
+    <link rel="icon" href="data:," />
+    <title>Eric Rodriguez — Mission Control</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #07090d;
+        --bg-2: #0a0d13;
+        --panel: #0d1119;
+        --panel-2: #111826;
+        --ink: #d6e4f5;
+        --ink-strong: #eef4fd;
+        --dim: #8496ad;
+        --faint: #54657c;
+        --line: #1e2c42;
+        --line-soft: #16202f;
+        --blue: #2e9bff;
+        --blue-deep: #0070d1;
+        --amber: #ffb000;
+        --red: #ff5f45;
+        --grid-line: rgba(46, 155, 255, 0.045);
+        --scan: rgba(0, 0, 0, 0.16);
+        --glow: rgba(46, 155, 255, 0.14);
+        --shadow: rgba(0, 0, 0, 0.55);
+      }
+      /* Dark ops-room theme is the design, in every context — per the brief,
+         the near-black palette is the identity of the page, not a mode. */
+
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body {
+        margin: 0;
+        background:
+          linear-gradient(var(--grid-line) 1px, transparent 1px),
+          linear-gradient(90deg, var(--grid-line) 1px, transparent 1px),
+          var(--bg);
+        background-size: 44px 44px, 44px 44px, auto;
+        color: var(--ink);
+        font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+        font-size: 16px;
+        line-height: 1.6;
+        overflow-x: hidden;
+      }
+      /* scanline veil */
+      body::after {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 60;
+        background: repeating-linear-gradient(
+          to bottom,
+          transparent 0,
+          transparent 3px,
+          var(--scan) 3px,
+          var(--scan) 4px
+        );
+        opacity: 0.5;
+      }
+      ::selection { background: var(--blue); color: var(--bg); }
+
+      .wrap { max-width: 1180px; margin: 0 auto; padding: 0 20px; }
+
+      a { color: var(--blue); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+
+      /* ---------- status bar ---------- */
+      .statusbar {
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        background: color-mix(in srgb, var(--bg) 88%, transparent);
+        backdrop-filter: blur(6px);
+        border-bottom: 1px solid var(--line);
+      }
+      .statusbar .wrap {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        min-height: 46px;
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        flex-wrap: wrap;
+        padding-top: 6px;
+        padding-bottom: 6px;
+      }
+      .pulse-dot {
+        width: 9px; height: 9px; border-radius: 50%;
+        background: var(--blue);
+        box-shadow: 0 0 0 0 var(--glow);
+        animation: pulse 2s infinite;
+        flex: none;
+      }
+      @keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(46, 155, 255, 0.45); }
+        70% { box-shadow: 0 0 0 9px rgba(46, 155, 255, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(46, 155, 255, 0); }
+      }
+      .status-ok { color: var(--blue); font-weight: 700; }
+      .status-sep { color: var(--faint); }
+      .status-clock { color: var(--amber); }
+      .status-nav { margin-left: auto; display: flex; gap: 16px; flex-wrap: wrap; }
+      .status-nav a { color: var(--dim); }
+      .status-nav a:hover { color: var(--blue); text-decoration: none; }
+
+      /* ---------- hero ---------- */
+      .hero { padding: 72px 0 30px; position: relative; }
+      .hero-id {
+        display: flex; flex-wrap: wrap; gap: 8px 22px;
+        font-size: 13px; color: var(--dim);
+        letter-spacing: 0.06em; text-transform: uppercase;
+        margin-bottom: 26px;
+      }
+      .hero-id b { color: var(--ink-strong); font-weight: 700; }
+      .hero-id .amber { color: var(--amber); }
+      h1.mega {
+        margin: 0;
+        font-size: clamp(3rem, 11.5vw, 9.2rem);
+        line-height: 0.94;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        color: var(--ink-strong);
+        text-transform: uppercase;
+      }
+      h1.mega .accent { color: var(--blue); }
+      h1.mega .cursor-block {
+        display: inline-block;
+        width: 0.52em; height: 0.78em;
+        background: var(--blue);
+        margin-left: 0.08em;
+        vertical-align: baseline;
+        animation: blink 1.05s steps(1) infinite;
+      }
+      @keyframes blink { 50% { opacity: 0; } }
+      .tagline {
+        margin: 30px 0 0;
+        font-size: clamp(1rem, 2.6vw, 1.35rem);
+        color: var(--blue);
+        min-height: 2.4em;
+      }
+      .tagline .typed-caret { color: var(--amber); animation: blink 0.8s steps(1) infinite; }
+      .hero-sub {
+        max-width: 640px;
+        color: var(--dim);
+        font-size: 15px;
+        margin: 14px 0 0;
+      }
+      .hero-cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+      .btn {
+        display: inline-block;
+        font: inherit;
+        font-size: 13px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        padding: 12px 20px;
+        border: 1px solid var(--blue);
+        color: var(--blue);
+        background: transparent;
+        cursor: pointer;
+        transition: background 0.15s, color 0.15s, transform 0.1s;
+      }
+      .btn:hover { background: var(--blue); color: var(--bg); text-decoration: none; }
+      .btn:active { transform: translateY(1px); }
+      .btn.solid { background: var(--blue); color: var(--bg); font-weight: 700; }
+      .btn.solid:hover { background: var(--ink-strong); border-color: var(--ink-strong); }
+      .btn.amber { border-color: var(--amber); color: var(--amber); }
+      .btn.amber:hover { background: var(--amber); color: var(--bg); }
+
+      /* stat strip */
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        border: 1px solid var(--line);
+        margin-top: 46px;
+        background: var(--bg-2);
+      }
+      .stat { padding: 18px 18px 14px; border-right: 1px solid var(--line-soft); }
+      .stat:last-child { border-right: none; }
+      .stat .num { font-size: clamp(1.5rem, 4vw, 2.3rem); font-weight: 800; color: var(--ink-strong); line-height: 1.1; }
+      .stat .num em { font-style: normal; color: var(--blue); }
+      .stat .lbl { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); margin-top: 4px; }
+
+      /* ticker */
+      .ticker {
+        margin-top: 26px;
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        overflow: hidden;
+        white-space: nowrap;
+        padding: 9px 0;
+        font-size: 12.5px;
+        color: var(--dim);
+        mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent);
+        -webkit-mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent);
+      }
+      .ticker-track { display: inline-block; animation: tick 46s linear infinite; }
+      .ticker:hover .ticker-track { animation-play-state: paused; }
+      @keyframes tick { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+      .ticker .ev b { color: var(--blue); font-weight: 700; }
+      .ticker .ev .t { color: var(--amber); }
+      .ticker .ev::after { content: " /// "; color: var(--faint); }
+
+      /* ---------- sections ---------- */
+      section { padding: 64px 0 8px; }
+      .sec-head { margin-bottom: 26px; }
+      .sec-tag {
+        font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase;
+        color: var(--amber);
+      }
+      .sec-head h2 {
+        margin: 6px 0 8px;
+        font-size: clamp(1.7rem, 5vw, 2.7rem);
+        font-weight: 800; text-transform: uppercase; letter-spacing: -0.01em;
+        color: var(--ink-strong); line-height: 1.05;
+      }
+      .sec-head p { color: var(--dim); max-width: 680px; margin: 0; font-size: 15px; }
+
+      /* Sections are always visible; .in only plays a one-shot entrance
+         animation when scrolled into view, so nothing is ever gated hidden. */
+      .reveal.in { animation: rise 0.6s ease both; }
+      @keyframes rise {
+        from { opacity: 0.25; transform: translateY(14px); }
+        to { opacity: 1; transform: none; }
+      }
+
+      /* ---------- terminal ---------- */
+      .terminal {
+        border: 1px solid var(--line);
+        background: var(--panel);
+        box-shadow: 0 24px 60px -30px var(--shadow);
+      }
+      .term-bar {
+        display: flex; align-items: center; gap: 8px;
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--line);
+        background: var(--panel-2);
+        font-size: 12px; color: var(--dim);
+        letter-spacing: 0.06em;
+      }
+      .term-dot { width: 11px; height: 11px; border-radius: 50%; border: 1px solid var(--line); flex: none; }
+      .term-dot.r { background: var(--red); border-color: var(--red); }
+      .term-dot.a { background: var(--amber); border-color: var(--amber); }
+      .term-dot.g { background: var(--blue); border-color: var(--blue); }
+      .term-title { margin-left: 8px; text-transform: uppercase; }
+      .term-body {
+        height: 380px;
+        overflow-y: auto;
+        padding: 16px 16px 8px;
+        font-size: 14px;
+        line-height: 1.65;
+        cursor: text;
+        scrollbar-width: thin;
+      }
+      .term-body .line { white-space: pre-wrap; word-break: break-word; }
+      .term-body .cmd-echo { color: var(--ink-strong); }
+      .term-body .cmd-echo::before { content: "visitor@mission-control:~ > "; color: var(--blue); font-weight: 700; }
+      .term-body .out { color: var(--ink); }
+      .term-body .out .hl { color: var(--blue); font-weight: 700; }
+      .term-body .out .am { color: var(--amber); }
+      .term-body .sys { color: var(--faint); }
+      .term-input-row {
+        display: flex; align-items: center; gap: 8px;
+        border-top: 1px solid var(--line);
+        padding: 12px 16px;
+        background: var(--panel-2);
+      }
+      .term-prompt { color: var(--blue); font-weight: 700; font-size: 14px; white-space: nowrap; }
+      .term-input-row input {
+        flex: 1; min-width: 0;
+        background: transparent; border: none; outline: none;
+        color: var(--ink-strong);
+        font: inherit; font-size: 14px;
+        caret-color: var(--blue);
+      }
+      .term-input-row input::placeholder { color: var(--faint); }
+      .quick-cmds { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+      .quick-cmds button {
+        font: inherit; font-size: 12px; letter-spacing: 0.06em;
+        background: transparent; color: var(--dim);
+        border: 1px solid var(--line); padding: 6px 12px; cursor: pointer;
+      }
+      .quick-cmds button:hover { color: var(--blue); border-color: var(--blue); }
+      .quick-cmds button::before { content: "> "; color: var(--blue); }
+
+      /* ---------- game ---------- */
+      .game-shell { border: 1px solid var(--line); background: var(--panel); box-shadow: 0 24px 60px -30px var(--shadow); }
+      .scoreboard {
+        display: flex; flex-wrap: wrap; gap: 10px 26px; align-items: center;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--line);
+        background: var(--panel-2);
+        font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase;
+      }
+      .scoreboard .sb b { font-size: 18px; margin-left: 6px; }
+      .sb-claimed b { color: var(--blue); }
+      .sb-missed b { color: var(--red); }
+      .sb-streak b { color: var(--amber); }
+      .sb-time { margin-left: auto; }
+      .sb-time b { color: var(--ink-strong); font-size: 18px; }
+      .game-stage {
+        position: relative;
+        height: 430px;
+        overflow: hidden;
+        background:
+          linear-gradient(var(--grid-line) 1px, transparent 1px),
+          linear-gradient(90deg, var(--grid-line) 1px, transparent 1px),
+          var(--bg-2);
+        background-size: 34px 34px;
+        touch-action: manipulation;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+      .danger-line {
+        position: absolute; left: 0; right: 0; bottom: 34px;
+        border-top: 1px dashed var(--red);
+        opacity: 0.55;
+        pointer-events: none;
+      }
+      .danger-line span {
+        position: absolute; right: 10px; top: -20px;
+        font-size: 10px; letter-spacing: 0.14em; color: var(--red); text-transform: uppercase;
+      }
+      .class-card {
+        position: absolute;
+        width: 158px;
+        padding: 10px 12px 12px;
+        background: var(--panel);
+        border: 1px solid var(--blue-deep);
+        color: var(--ink);
+        cursor: pointer;
+        font-size: 12px;
+        line-height: 1.45;
+        box-shadow: 0 10px 24px -12px var(--shadow);
+        will-change: transform;
+      }
+      .class-card:hover { border-color: var(--blue); }
+      .class-card .cc-top { display: flex; justify-content: space-between; font-size: 10px; letter-spacing: 0.1em; color: var(--amber); text-transform: uppercase; }
+      .class-card .cc-subj { font-size: 14px; font-weight: 700; color: var(--ink-strong); margin-top: 3px; }
+      .class-card .cc-meta { color: var(--dim); }
+      .class-card .cc-bar { height: 4px; background: var(--line-soft); margin-top: 8px; }
+      .class-card .cc-bar i { display: block; height: 100%; background: var(--blue); }
+      .class-card.claimed { border-color: var(--blue); background: var(--blue); color: var(--bg); animation: pop 0.25s ease forwards; }
+      .class-card.claimed .cc-subj, .class-card.claimed .cc-meta, .class-card.claimed .cc-top { color: var(--bg); }
+      .class-card.expired { border-color: var(--red); opacity: 0.35; animation: pop 0.3s ease forwards; }
+      @keyframes pop { to { transform: scale(1.12); opacity: 0; } }
+      .float-tag {
+        position: absolute; font-size: 12px; font-weight: 700; letter-spacing: 0.08em;
+        pointer-events: none; animation: floatup 0.8s ease forwards; z-index: 5;
+      }
+      .float-tag.good { color: var(--blue); }
+      .float-tag.bad { color: var(--red); }
+      @keyframes floatup { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-34px); } }
+      .game-overlay {
+        position: absolute; inset: 0;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        text-align: center; padding: 24px;
+        background: color-mix(in srgb, var(--bg) 82%, transparent);
+        z-index: 10;
+      }
+      .game-overlay h3 { margin: 0 0 8px; font-size: clamp(1.3rem, 4vw, 2rem); text-transform: uppercase; color: var(--ink-strong); }
+      .game-overlay p { color: var(--dim); max-width: 460px; margin: 0 0 18px; font-size: 14px; }
+      .game-overlay .final { font-size: 15px; color: var(--ink); }
+      .game-overlay .final b.g { color: var(--blue); }
+      .game-overlay .final b.r { color: var(--red); }
+      .game-msg {
+        min-height: 24px; padding: 10px 16px;
+        border-top: 1px solid var(--line);
+        font-size: 13px; color: var(--amber);
+        background: var(--panel-2);
+      }
+
+      /* ---------- dossiers ---------- */
+      .dossiers { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+      .dossier {
+        border: 1px solid var(--line);
+        background: var(--panel);
+        padding: 22px 22px 18px;
+        position: relative;
+      }
+      .dossier::before {
+        content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+        background: var(--blue);
+      }
+      .dossier.amber-top::before { background: var(--amber); }
+      .dossier .file-row {
+        display: flex; justify-content: space-between; align-items: center; gap: 10px;
+        font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint);
+      }
+      .stamp {
+        border: 1px solid var(--blue); color: var(--blue);
+        padding: 2px 8px; font-weight: 700; transform: rotate(2deg);
+      }
+      .stamp.amber { border-color: var(--amber); color: var(--amber); }
+      .dossier h3 {
+        margin: 12px 0 4px; font-size: 1.45rem; font-weight: 800;
+        color: var(--ink-strong); text-transform: uppercase; letter-spacing: 0.01em;
+      }
+      .dossier .codename { color: var(--dim); font-size: 13px; margin: 0 0 14px; }
+      .dossier dl { margin: 0; font-size: 14px; }
+      .dossier dt {
+        font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+        color: var(--amber); margin-top: 12px;
+      }
+      .dossier dd { margin: 3px 0 0; color: var(--ink); }
+      .dossier dd.stack { color: var(--dim); }
+
+      /* ---------- the loop ---------- */
+      .loop-shell { border: 1px solid var(--line); background: var(--panel); box-shadow: 0 24px 60px -30px var(--shadow); }
+      .loop-stage {
+        position: relative;
+        height: 520px;
+        overflow: hidden;
+        background:
+          linear-gradient(var(--grid-line) 1px, transparent 1px),
+          linear-gradient(90deg, var(--grid-line) 1px, transparent 1px),
+          var(--bg-2);
+        background-size: 34px 34px;
+      }
+      .loop-stage canvas {
+        position: absolute; inset: 0;
+        width: 100%; height: 100%;
+        display: block;
+        cursor: pointer;
+      }
+      .loop-legend {
+        display: flex; flex-wrap: wrap; gap: 8px 22px;
+        padding: 12px 16px;
+        border-top: 1px solid var(--line);
+        background: var(--panel-2);
+        font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase;
+        color: var(--dim);
+      }
+      .loop-legend i {
+        display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+        margin-right: 7px; vertical-align: baseline;
+      }
+      .loop-caption {
+        min-height: 24px; padding: 10px 16px;
+        border-top: 1px solid var(--line);
+        font-size: 13px; color: var(--amber);
+        background: var(--panel-2);
+      }
+      .loop-steps { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 18px; }
+      .loop-step {
+        border: 1px solid var(--line);
+        background: var(--panel);
+        padding: 20px 22px 14px;
+      }
+      .loop-step.wide { grid-column: 1 / -1; }
+      .loop-step .step-tag { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--amber); }
+      .loop-step h3 { margin: 8px 0 8px; font-size: 1.15rem; font-weight: 800; text-transform: uppercase; color: var(--ink-strong); }
+      .loop-step p { margin: 0 0 10px; color: var(--dim); font-size: 14.5px; }
+      .loop-step ul { margin: 0 0 10px; padding-left: 18px; color: var(--dim); font-size: 14.5px; }
+      .loop-step li { margin-bottom: 8px; }
+      .loop-step li b { color: var(--ink); }
+      .loop-step li:last-child { margin-bottom: 0; }
+
+      /* ---------- timeline ---------- */
+      .timeline { border-left: 2px solid var(--line); margin-left: 8px; }
+      .tl-item { position: relative; padding: 0 0 30px 30px; }
+      .tl-item::before {
+        content: ""; position: absolute; left: -7px; top: 5px;
+        width: 12px; height: 12px; background: var(--bg);
+        border: 2px solid var(--blue); border-radius: 50%;
+      }
+      .tl-item.night::before { border-color: var(--amber); }
+      .tl-time { font-size: 12px; letter-spacing: 0.12em; color: var(--amber); text-transform: uppercase; }
+      .tl-item h3 { margin: 4px 0 4px; font-size: 1.12rem; color: var(--ink-strong); text-transform: uppercase; }
+      .tl-item p { margin: 0; color: var(--dim); font-size: 14.5px; max-width: 640px; }
+      .tl-item .who { display: inline-block; margin-top: 6px; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; border: 1px solid var(--line); padding: 2px 8px; color: var(--dim); }
+      .tl-item .who.machine { color: var(--blue); border-color: var(--blue-deep); }
+
+      /* ---------- contact / footer ---------- */
+      .contact-box {
+        border: 1px solid var(--line); background: var(--panel);
+        padding: 30px 26px; text-align: left;
+      }
+      .contact-box h2 { margin: 0 0 8px; font-size: clamp(1.6rem, 5vw, 2.4rem); text-transform: uppercase; color: var(--ink-strong); }
+      .contact-box p { color: var(--dim); max-width: 620px; margin: 0 0 20px; font-size: 15px; }
+      footer {
+        margin-top: 70px; border-top: 1px solid var(--line);
+        padding: 22px 0 34px; font-size: 12px; color: var(--faint);
+        letter-spacing: 0.06em;
+      }
+      footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 24px; justify-content: space-between; }
+
+      @media (max-width: 760px) {
+        .stats { grid-template-columns: 1fr 1fr; }
+        .stat:nth-child(2) { border-right: none; }
+        .stat:nth-child(1), .stat:nth-child(2) { border-bottom: 1px solid var(--line-soft); }
+        .dossiers { grid-template-columns: 1fr; }
+        .loop-steps { grid-template-columns: 1fr; }
+        .loop-stage { height: 470px; }
+        .game-stage { height: 380px; }
+        .class-card { width: 138px; }
+        .term-body { height: 320px; font-size: 13px; }
+        .hero { padding-top: 46px; }
+        .status-nav { display: none; }
+        section { padding-top: 48px; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        html { scroll-behavior: auto; }
+        .ticker-track, .pulse-dot, h1.mega .cursor-block, .tagline .typed-caret { animation: none !important; }
+        .reveal.in { animation: none; }
+      }
+    </style>
+  </head>
+  <body>
+
+    <!-- ================= STATUS BAR ================= -->
+    <div class="statusbar">
+      <div class="wrap">
+        <span class="pulse-dot" aria-hidden="true"></span>
+        <span class="status-ok">Systems Nominal</span>
+        <span class="status-sep">|</span>
+        <span>Agents on watch: 4</span>
+        <span class="status-sep">|</span>
+        <span>Local <span class="status-clock" id="clock">--:--:--</span></span>
+        <nav class="status-nav" aria-label="Sections">
+          <a href="#terminal">Terminal</a>
+          <a href="#game">Sub-Grab</a>
+          <a href="#dossiers">Dossiers</a>
+          <a href="#loop">Loop</a>
+          <a href="#timeline">Timeline</a>
+          <a href="#contact">Contact</a>
+        </nav>
+      </div>
+    </div>
+
+    <!-- ================= HERO ================= -->
+    <header class="hero">
+      <div class="wrap">
+        <div class="hero-id">
+          <span>Operator: <b>Eric Rodriguez</b></span>
+          <span>Base: <b>Guanajuato, MX</b></span>
+          <span>Clearance: <span class="amber">Director</span></span>
+        </div>
+        <h1 class="mega">I direct<br /><span class="accent">AI agents</span>.<span class="cursor-block" aria-hidden="true"></span></h1>
+        <p class="tagline"><span id="typed"></span><span class="typed-caret">_</span></p>
+        <p class="hero-sub">
+          Ten thousand-plus teaching sessions taught me how people actually learn. Now I run a
+          small crew of AI agents the same way — clear orders, tight feedback loops, and a human
+          who checks the work. This page is the control room. Everything below actually runs.
+        </p>
+        <div class="hero-cta">
+          <a class="btn solid" href="#terminal">Open the terminal</a>
+          <a class="btn" href="#game">Try the sub-grab</a>
+          <a class="btn amber" href="#dossiers">Read the dossiers</a>
+        </div>
+
+        <div class="stats">
+          <div class="stat">
+            <div class="num">10,000<em>+</em></div>
+            <div class="lbl">Teaching sessions delivered</div>
+          </div>
+          <div class="stat">
+            <div class="num">4</div>
+            <div class="lbl">AI agents under direction</div>
+          </div>
+          <div class="stat">
+            <div class="num">24<em>/</em>7</div>
+            <div class="lbl">Agent watch rotation</div>
+          </div>
+          <div class="stat">
+            <div class="num">1</div>
+            <div class="lbl">Human making the calls</div>
+          </div>
+        </div>
+
+        <div class="ticker" aria-label="Agent activity feed">
+          <div class="ticker-track" id="ticker-track"></div>
+        </div>
+      </div>
+    </header>
+
+    <!-- ================= TERMINAL ================= -->
+    <section id="terminal">
+      <div class="wrap">
+        <div class="sec-head reveal">
+          <div class="sec-tag">// Access point 01</div>
+          <h2>Talk to mission control</h2>
+          <p>
+            This terminal is live. Type a command and the system answers — my story, my crew,
+            my methods, straight from the source. Start with <b>help</b> if you want the map.
+          </p>
+        </div>
+        <div class="terminal reveal">
+          <div class="term-bar">
+            <span class="term-dot r"></span><span class="term-dot a"></span><span class="term-dot g"></span>
+            <span class="term-title">eric@mission-control — visitor session</span>
+          </div>
+          <div class="term-body" id="term-body" aria-live="polite"></div>
+          <form class="term-input-row" id="term-form" autocomplete="off">
+            <span class="term-prompt">visitor@mission-control:~ &gt;</span>
+            <input id="term-input" type="text" placeholder="type 'help' and hit enter" aria-label="Terminal command input" spellcheck="false" />
+          </form>
+        </div>
+        <div class="quick-cmds reveal" aria-label="Quick commands">
+          <button type="button" data-cmd="help">help</button>
+          <button type="button" data-cmd="whoami">whoami</button>
+          <button type="button" data-cmd="team">team</button>
+          <button type="button" data-cmd="status">status</button>
+          <button type="button" data-cmd="loop">loop</button>
+          <button type="button" data-cmd="deploy">deploy</button>
+          <button type="button" data-cmd="contact">contact</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= GAME ================= -->
+    <section id="game">
+      <div class="wrap">
+        <div class="sec-head reveal">
+          <div class="sec-tag">// Access point 02 — live fire exercise</div>
+          <h2>The sub-grab</h2>
+          <p>
+            When a teacher drops a class on Savvy Learning, it appears for a few seconds and the
+            fastest hand wins. My agent Damon does this around the clock. Here is your shift:
+            claim the falling classes before they cross the expiry line. Sixty seconds. Good luck —
+            you'll need it.
+          </p>
+        </div>
+        <div class="game-shell reveal">
+          <div class="scoreboard">
+            <span class="sb sb-claimed">Claimed <b id="sb-claimed">0</b></span>
+            <span class="sb sb-missed">Missed <b id="sb-missed">0</b></span>
+            <span class="sb sb-streak">Streak <b id="sb-streak">0</b></span>
+            <span class="sb sb-time">Time <b id="sb-time">60</b></span>
+          </div>
+          <div class="game-stage" id="game-stage">
+            <div class="danger-line"><span>Expiry line</span></div>
+            <div class="game-overlay" id="game-overlay">
+              <h3 id="overlay-title">Ready for your shift?</h3>
+              <p id="overlay-text">
+                Dropped classes will fall from the top of the board. Click or tap each one to claim
+                it before it expires. Miss the line, lose the class. Damon never sleeps — see if you can keep up for one minute.
+              </p>
+              <button class="btn solid" id="game-start-btn" type="button">Start shift</button>
+            </div>
+          </div>
+          <div class="game-msg" id="game-msg">DAMON is watching the board so you don't have to. Usually.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= DOSSIERS ================= -->
+    <section id="dossiers">
+      <div class="wrap">
+        <div class="sec-head reveal">
+          <div class="sec-tag">// Access point 03 — case files</div>
+          <h2>Mission dossiers</h2>
+          <p>Four operations, all running. Each one started as a problem I refused to keep solving by hand.</p>
+        </div>
+        <div class="dossiers">
+          <article class="dossier reveal">
+            <div class="file-row"><span>File MC-001</span><span class="stamp">Active</span></div>
+            <h3>Damon</h3>
+            <p class="codename">Autonomous sub-class grabber — Savvy Learning</p>
+            <dl>
+              <dt>Objective</dt>
+              <dd>When another teacher drops a substitute class, it is claimed by whoever sees it first. A human refreshing a page loses that race. Damon doesn't.</dd>
+              <dt>Outcome</dt>
+              <dd>Damon watches the postings around the clock and claims matching classes in seconds — while I'm teaching, training, or asleep. I review the results; he runs the watch.</dd>
+              <dt>Stack</dt>
+              <dd class="stack">Automation scripts · scheduled watchers · instant alerting · human review queue</dd>
+            </dl>
+          </article>
+
+          <article class="dossier amber-top reveal">
+            <div class="file-row"><span>File MC-002</span><span class="stamp amber">Active</span></div>
+            <h3>Reel-Pipeline</h3>
+            <p class="codename">Short-form video automation</p>
+            <dl>
+              <dt>Objective</dt>
+              <dd>Content only works if it ships consistently, and consistency dies the week a human gets busy. The pipeline removes the busywork between an idea and a posted video.</dd>
+              <dt>Outcome</dt>
+              <dd>A repeatable production line: source material in, finished short-form videos out, on a steady cadence with minimal hands-on time from me.</dd>
+              <dt>Stack</dt>
+              <dd class="stack">Scripted editing workflow · asset templates · batch rendering · scheduled posting</dd>
+            </dl>
+          </article>
+
+          <article class="dossier reveal">
+            <div class="file-row"><span>File MC-003</span><span class="stamp">Doctrine</span></div>
+            <h3>AI-Director Playbook</h3>
+            <p class="codename">My methodology for directing AI agents</p>
+            <dl>
+              <dt>Objective</dt>
+              <dd>One prompt is not a workforce. The playbook is the system I built for giving several AI agents real jobs — and trusting the output because it gets verified, not because it sounds confident.</dd>
+              <dt>Outcome</dt>
+              <dd>Agents with defined roles, written standing orders, and checkpoints I personally clear. Ten thousand teaching sessions taught me the core skill: explain it clearly, check the work, correct fast.</dd>
+              <dt>Stack</dt>
+              <dd class="stack">Multi-agent coordination · verification loops · human-in-the-loop checkpoints · written SOPs</dd>
+            </dl>
+          </article>
+
+          <article class="dossier amber-top reveal">
+            <div class="file-row"><span>File MC-004</span><span class="stamp amber">Active</span></div>
+            <h3>Console Remote-Ops Toolkit</h3>
+            <p class="codename">Remote operations for game consoles</p>
+            <dl>
+              <dt>Objective</dt>
+              <dd>Game consoles are computers that hide their controls. This toolkit brings them onto the network where they can be reached, inspected, and operated remotely.</dd>
+              <dt>Outcome</dt>
+              <dd>Remote control, diagnostics, and automation for console hardware — the same discipline as the rest of the operation: observe first, act precisely, verify everything.</dd>
+              <dt>Stack</dt>
+              <dd class="stack">Remote control tooling · diagnostics · network automation · scripted routines</dd>
+            </dl>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= THE LOOP ================= -->
+    <section id="loop">
+      <div class="wrap">
+        <div class="sec-head reveal">
+          <div class="sec-tag">// Access point 04</div>
+          <h2>The Loop</h2>
+          <p>
+            What you're looking at is a map of how I actually work with AI every day. It is not
+            one chatbot answering questions. It is a whole team, with me in the middle of it —
+            and this picture shows how the pieces connect, and how the whole thing keeps going
+            around.
+          </p>
+        </div>
+        <div class="loop-shell reveal">
+          <div class="loop-stage" id="loop-stage">
+            <canvas id="loop-canvas" role="img" aria-label="Animated map of the daily loop: on the left, the things Eric sends in — voice notes, photos, receipts, his schedule, ideas. In the middle, Bubby, his AI chief of staff, who sorts it all out. Branching out, four specialist agents: Damon, Gwen, Kilo, and Bubby keeping the records. Along the bottom, the memory — saved notes, the money log, the calendar — with lines curving back to the middle. On the right, the results flowing back into real life: reminders, tasks done, money tracked, problems fixed."></canvas>
+          </div>
+          <div class="loop-legend" aria-hidden="true">
+            <span><i style="background:#ffb000"></i>Me, talking</span>
+            <span><i style="background:#2e9bff"></i>Bubby — chief of staff</span>
+            <span><i style="background:#2dd4bf"></i>The specialists</span>
+            <span><i style="background:#22d3ee"></i>The memory</span>
+            <span><i style="background:#7dd3fc"></i>Back into my life</span>
+          </div>
+          <div class="loop-caption" id="loop-caption">The light moving through the lines is work traveling through the system. Click or tap any dot to see what it does.</div>
+        </div>
+        <div class="loop-steps">
+          <article class="loop-step reveal">
+            <div class="step-tag">Step 01 — It starts with me</div>
+            <h3>Me, talking</h3>
+            <p>
+              Everything begins with me. I send a voice message, share a photo, forward a
+              receipt, or just say what I need. It could be &ldquo;remind me before my
+              class,&rdquo; or &ldquo;something's wrong with my computer,&rdquo; or &ldquo;help
+              me figure out my budget.&rdquo; Normal stuff — the way you'd text a friend.
+            </p>
+          </article>
+          <article class="loop-step reveal">
+            <div class="step-tag">Step 02 — The middle</div>
+            <h3>My AI chief of staff</h3>
+            <p>
+              All of it goes to Bubby, my main AI assistant. Think of him like a really good
+              office manager. He figures out what I'm actually asking for, checks what he
+              already knows about me, and decides what needs to happen. Sometimes he handles it
+              himself. Sometimes he sends it to one of the specialists.
+            </p>
+          </article>
+          <article class="loop-step reveal">
+            <div class="step-tag">Step 03 — The specialists</div>
+            <h3>Four agents, four jobs</h3>
+            <ul>
+              <li><b>Damon</b> watches for extra teaching classes I can pick up, and grabs them before anyone else does. He's a big reason I earn what I earn.</li>
+              <li><b>Gwen</b> looks after my computer. She keeps an eye on it, fixes problems before I even notice them, and builds the tools I need.</li>
+              <li><b>Kilo</b> is the night watchman. He keeps watch over everything while I sleep.</li>
+              <li><b>Bubby</b> also keeps all my records — every dollar tracked, every receipt saved, every appointment remembered.</li>
+            </ul>
+          </article>
+          <article class="loop-step reveal">
+            <div class="step-tag">Step 04 — The memory</div>
+            <h3>It remembers everything</h3>
+            <p>
+              Here's the part most people miss. Every conversation gets saved and sorted. So
+              next week, Bubby still remembers what we talked about today. It's like working
+              with someone who never forgets a thing. The longer we work together, the better it
+              gets — because everything builds on what came before it.
+            </p>
+          </article>
+          <article class="loop-step reveal">
+            <div class="step-tag">Step 05 — The loop closes</div>
+            <h3>Back to my real life</h3>
+            <p>
+              The agents do their work, and the results come back to me. A reminder pops up
+              before class. My computer runs smooth. Money gets written down. Groceries get
+              tracked. Then I answer, give a new instruction, or ask the next thing — and the
+              whole cycle starts again.
+            </p>
+          </article>
+          <article class="loop-step wide reveal">
+            <div class="step-tag">Why it matters</div>
+            <h3>Not a search box. An operation.</h3>
+            <p>
+              Most people use AI like a search box: ask a question, get an answer, done. This is
+              different. This is AI woven into a real person's daily life. I'm not chatting with
+              a robot. I'm running an operation where I'm the boss and the AI handles the rest.
+              Follow the picture above: me &rarr; AI &rarr; specialists &rarr; memory &rarr;
+              results &rarr; back to me. Around and around, a little smarter every time.
+            </p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= TIMELINE ================= -->
+    <section id="timeline">
+      <div class="wrap">
+        <div class="sec-head reveal">
+          <div class="sec-tag">// Access point 05 — one rotation</div>
+          <h2>A day in the operation</h2>
+          <p>The human works a shift. The machines work all of them. This is how the two halves fit together.</p>
+        </div>
+        <div class="timeline reveal">
+          <div class="tl-item">
+            <div class="tl-time">05:00 — The human</div>
+            <h3>Ruck out</h3>
+            <p>Thirty-two pound pack, out the door before the sun. Discipline is the whole business model — everything else in this operation runs on it.</p>
+            <span class="who">Eric</span>
+          </div>
+          <div class="tl-item">
+            <div class="tl-time">07:30 — Joint ops</div>
+            <h3>Morning brief</h3>
+            <p>Review the overnight agent reports: classes claimed, builds finished, anything flagged. I clear the checkpoints, adjust the orders, and take my seat.</p>
+            <span class="who">Eric + crew</span>
+          </div>
+          <div class="tl-item">
+            <div class="tl-time">Morning — The human</div>
+            <h3>Teaching block one</h3>
+            <p>Live reading sessions with young students on tutoring platforms — phonics, fluency, comprehension. The day job, and the reason the agents exist: they protect this time.</p>
+            <span class="who">Eric</span>
+          </div>
+          <div class="tl-item">
+            <div class="tl-time">Midday — Joint ops</div>
+            <h3>Checks and corrections</h3>
+            <p>Between sessions I verify agent output, answer the flags that need a human, and line up the afternoon. Nothing ships on an agent's word alone.</p>
+            <span class="who">Eric + crew</span>
+          </div>
+          <div class="tl-item">
+            <div class="tl-time">Afternoon — The human</div>
+            <h3>Teaching block two</h3>
+            <p>Afternoon sessions, including classes Damon claimed overnight. A student gets a teacher who showed up rested and prepared — that's the product.</p>
+            <span class="who">Eric</span>
+          </div>
+          <div class="tl-item">
+            <div class="tl-time">Evening — The human</div>
+            <h3>Stand down</h3>
+            <p>Family time, training, rest. I hand the watch over with clear orders and a short list of what to wake me for. Almost nothing makes that list.</p>
+            <span class="who">Eric</span>
+          </div>
+          <div class="tl-item night">
+            <div class="tl-time">Overnight — The machines</div>
+            <h3>The night shift</h3>
+            <p>Damon hunts dropped sub-classes. The other agents run builds, monitor systems, and prepare the morning brief. By 05:00 there is a report waiting and the board is already worked.</p>
+            <span class="who machine">Agents on watch</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= CONTACT ================= -->
+    <section id="contact">
+      <div class="wrap">
+        <div class="contact-box reveal">
+          <div class="sec-tag">// Final transmission</div>
+          <h2>Open a channel</h2>
+          <p>
+            The code, the experiments, and the ongoing build log live on GitHub. If you direct
+            agents too — or you want someone who does — that's where the conversation starts.
+          </p>
+          <div class="hero-cta" style="margin-top: 0;">
+            <a class="btn solid" href="https://github.com/NcrMancer" target="_blank" rel="noopener">github.com/NcrMancer</a>
+            <a class="btn" href="#terminal">Ask the terminal: type "contact"</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <div class="wrap">
+        <span>ERIC RODRIGUEZ — MISSION CONTROL · GUANAJUATO, MX</span>
+        <span>Shipped? Always. Verified? Twice.</span>
+      </div>
+    </footer>
+
+    <script>
+      (function () {
+        "use strict";
+        var reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+        /* ---------- clock ---------- */
+        var clockEl = document.getElementById("clock");
+        function tickClock() {
+          var d = new Date();
+          function p(n) { return (n < 10 ? "0" : "") + n; }
+          clockEl.textContent = p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds());
+        }
+        tickClock();
+        setInterval(tickClock, 1000);
+
+        /* ---------- ticker ---------- */
+        var events = [
+          ["DAMON", "scanning Savvy Learning postings — board quiet"],
+          ["GWEN", "build checkpoint verified, no errors"],
+          ["KILO", "watch cycle complete — all quiet"],
+          ["BUBBY", "inbox sweep finished — nothing urgent"],
+          ["DAMON", "new sub posting matched filters — claiming"],
+          ["GWEN", "overnight report drafted for the morning brief"],
+          ["SYSTEM", "verification loop passed on all active ops"],
+          ["KILO", "monitoring tutoring platform schedules"],
+          ["BUBBY", "calendar cross-check complete"],
+          ["DAMON", "claim confirmed — class added to the board"]
+        ];
+        var track = document.getElementById("ticker-track");
+        var tickerHTML = "";
+        events.forEach(function (e, i) {
+          tickerHTML += '<span class="ev"><span class="t">[T+' + (i * 7 + 3) + 'm]</span> <b>' + e[0] + '</b> — ' + e[1] + "</span>";
+        });
+        track.innerHTML = tickerHTML + tickerHTML; // duplicate for seamless loop
+
+        /* ---------- hero typing effect ---------- */
+        var phrases = [
+          "> literacy teacher by day. AI workforce director around the clock",
+          "> 10,000+ sessions taught. Four agents directed. Zero excuses.",
+          "> the classes get taught. the agents get orders. the work gets verified."
+        ];
+        var typedEl = document.getElementById("typed");
+        if (reducedMotion) {
+          typedEl.textContent = phrases[0];
+        } else {
+          var pi = 0, ci = 0, deleting = false;
+          function typeStep() {
+            var full = phrases[pi];
+            if (!deleting) {
+              ci++;
+              typedEl.textContent = full.slice(0, ci);
+              if (ci === full.length) { deleting = true; setTimeout(typeStep, 2600); return; }
+              setTimeout(typeStep, 34 + Math.random() * 40);
+            } else {
+              ci -= 3;
+              if (ci <= 0) { ci = 0; deleting = false; pi = (pi + 1) % phrases.length; }
+              typedEl.textContent = full.slice(0, Math.max(0, ci));
+              setTimeout(typeStep, 14);
+            }
+          }
+          typeStep();
+        }
+
+        /* ---------- reveal on scroll ---------- */
+        var revealEls = document.querySelectorAll(".reveal");
+        if ("IntersectionObserver" in window && !reducedMotion) {
+          var io = new IntersectionObserver(function (entries) {
+            entries.forEach(function (en) {
+              if (en.isIntersecting) { en.target.classList.add("in"); io.unobserve(en.target); }
+            });
+          }, { threshold: 0.12 });
+          revealEls.forEach(function (el) { io.observe(el); });
+        } else {
+          revealEls.forEach(function (el) { el.classList.add("in"); });
+        }
+
+        /* ================= TERMINAL ================= */
+        var termBody = document.getElementById("term-body");
+        var termForm = document.getElementById("term-form");
+        var termInput = document.getElementById("term-input");
+        var history = [];
+        var histIdx = -1;
+        var typingTimer = null;
+        var typeQueue = [];
+
+        function scrollTerm() { termBody.scrollTop = termBody.scrollHeight; }
+
+        function addLine(html, cls) {
+          var div = document.createElement("div");
+          div.className = "line " + (cls || "out");
+          div.innerHTML = html;
+          termBody.appendChild(div);
+          scrollTerm();
+          return div;
+        }
+
+        // Type lines out character-by-character (fast), queue-safe.
+        function typeLines(lines, done) {
+          lines.forEach(function (l) { typeQueue.push(l); });
+          if (typingTimer === null) drainQueue(done);
+        }
+        function drainQueue(done) {
+          if (typeQueue.length === 0) { typingTimer = null; if (done) done(); return; }
+          var item = typeQueue.shift();
+          var div = addLine("", item.cls || "out");
+          var raw = item.html;
+          if (reducedMotion) {
+            div.innerHTML = raw;
+            typingTimer = setTimeout(function () { drainQueue(done); }, 0);
+            return;
+          }
+          // type plain text, then swap in the rich HTML at the end of the line
+          var plain = raw.replace(/<[^>]*>/g, "");
+          var i = 0;
+          typingTimer = setInterval(function () {
+            i += 3;
+            if (i >= plain.length) {
+              clearInterval(typingTimer);
+              div.innerHTML = raw;
+              scrollTerm();
+              typingTimer = setTimeout(function () { drainQueue(done); }, 30);
+            } else {
+              div.textContent = plain.slice(0, i);
+            }
+          }, 6);
+        }
+        function flushType() {
+          // finish everything instantly (used when a new command arrives mid-type)
+          if (typingTimer !== null) { clearInterval(typingTimer); clearTimeout(typingTimer); typingTimer = null; }
+          while (typeQueue.length) {
+            var item = typeQueue.shift();
+            addLine(item.html, item.cls || "out");
+          }
+        }
+
+        var RESPONSES = {
+          help: [
+            "AVAILABLE COMMANDS",
+            "  <span class='hl'>whoami</span>   — who runs this operation",
+            "  <span class='hl'>status</span>   — current state of every system",
+            "  <span class='hl'>team</span>     — meet the agent crew",
+            "  <span class='hl'>skills</span>   — what the director brings to the table",
+            "  <span class='hl'>projects</span> — the mission dossiers, short version",
+            "  <span class='hl'>loop</span>     — how me, the AI, and the agents all fit together",
+            "  <span class='hl'>deploy</span>   — send the crew to work",
+            "  <span class='hl'>contact</span>  — open a channel",
+            "  <span class='hl'>clear</span>    — wipe the screen",
+            "There are a few undocumented commands in here too. Poking around is encouraged."
+          ],
+          whoami: [
+            "<span class='hl'>ERIC RODRIGUEZ</span> — literacy tutor specialist, Guanajuato, Mexico.",
+            "BA in English Linguistics. 10,000+ teaching sessions across tutoring platforms —",
+            "thousands of kids taught to read, one small group at a time.",
+            "By day I teach. Around the clock I direct a crew of AI agents that hunt work,",
+            "build things, and watch the systems I depend on. Same skill, two classrooms:",
+            "explain it clearly, check the work, correct fast."
+          ],
+          status: [
+            "SYSTEM STATUS — ALL GREEN",
+            "  DAMON ....... <span class='hl'>ON WATCH</span> — scanning Savvy Learning for dropped sub-classes",
+            "  GWEN ........ <span class='hl'>BUILDING</span> — development and systems work in progress",
+            "  KILO ........ <span class='hl'>MONITORING</span> — the quiet one. Watches everything, says little",
+            "  BUBBY ....... <span class='hl'>COORDINATING</span> — inbox, calendar, and the morning brief",
+            "  DIRECTOR .... <span class='am'>ON SHIFT</span> — that's me. The human in the loop",
+            "Uptime is a habit, not a feature."
+          ],
+          team: [
+            "THE CREW — four agents, four jobs, one director:",
+            "  <span class='hl'>DAMON</span> — the sub-grabber. Watches Savvy Learning postings and claims",
+            "           dropped classes in seconds. Never sleeps, never refreshes a page by hand.",
+            "  <span class='hl'>GWEN</span> — the builder. Writes and maintains the systems the rest of us run on.",
+            "  <span class='hl'>KILO</span> — the watchman. Local, quiet, always on. If a system twitches, Kilo saw it.",
+            "  <span class='hl'>BUBBY</span> — the coordinator. Keeps the inbox at zero and the day on rails.",
+            "           Also the name of my guinea pig. He was here first — the rank is honorary.",
+            "Every agent has written orders and a human who verifies the work. That's the job."
+          ],
+          skills: [
+            "DIRECTOR'S SKILL SET",
+            "  AI direction ..... multi-agent coordination, task decomposition, written SOPs",
+            "  Verification ..... output review loops, human-in-the-loop checkpoints",
+            "  Automation ....... scheduled watchers, alerting, remote operations",
+            "  Teaching ......... K-8 literacy intervention — phonics, fluency, comprehension",
+            "  Languages ........ English / Spanish, BA in English Linguistics",
+            "Ten thousand sessions of teaching kids to read will teach anyone how to",
+            "give clear instructions and spot confusion early. Agents are no different."
+          ],
+          projects: [
+            "MISSION DOSSIERS — SUMMARY (full files are further down this page)",
+            "  <span class='hl'>MC-001 DAMON</span> — autonomous sub-class grabber for Savvy Learning",
+            "  <span class='hl'>MC-002 REEL-PIPELINE</span> — short-form video automation",
+            "  <span class='hl'>MC-003 AI-DIRECTOR PLAYBOOK</span> — the methodology behind all of it",
+            "  <span class='hl'>MC-004 CONSOLE REMOTE-OPS TOOLKIT</span> — remote control + diagnostics",
+            "Scroll to the dossiers section for objectives, outcomes, and stacks."
+          ],
+          loop: [
+            "THE LOOP — how the whole thing fits together",
+            "Everything starts with me: a voice note, a photo, a receipt, or just saying",
+            "what I need, the way you'd text a friend. It all goes to <span class='hl'>Bubby</span>, my",
+            "AI chief of staff — think of him as a really good office manager. He works",
+            "out what I'm asking for and either handles it himself or hands it to a",
+            "specialist: <span class='hl'>Damon</span> grabs extra classes before anyone else can,",
+            "<span class='hl'>Gwen</span> keeps my computer healthy, <span class='hl'>Kilo</span> watches the night, and Bubby",
+            "keeps every record. Everything gets saved, so next week the system still",
+            "remembers what we talked about today. Then the results come back into my",
+            "real life — a reminder before class, money written down, a problem fixed —",
+            "and I ask the next thing, and around it goes again. Scroll down to",
+            "<span class='hl'>The Loop</span> section and you can watch it move."
+          ],
+          deploy: [
+            "DEPLOYING CREW...",
+            "  DAMON → resuming watch on Savvy Learning postings",
+            "  GWEN → picking up the next build task",
+            "  KILO → watch cycle restarted",
+            "  BUBBY → preparing the next brief",
+            "<span class='hl'>DEPLOYED.</span> They work. I verify. That's the whole arrangement."
+          ],
+          contact: [
+            "OPEN CHANNEL",
+            "  GitHub — <a href='https://github.com/NcrMancer' target='_blank' rel='noopener'>github.com/NcrMancer</a>",
+            "The code, the experiments, and the build log live there.",
+            "If you direct agents too, you'll find plenty to talk about."
+          ]
+        };
+
+        var EASTER = {
+          sudo: ["Nice try. Root access stays with the director.", "Clearance denied — politely, but denied."],
+          coffee: ["Coffee protocol acknowledged.", "The director runs on discipline and one strong cup. The agents run on electricity and clear orders."],
+          bubby: ["<span class='hl'>BUBBY</span> — guinea pig, chief morale officer, namesake of this entire operation.", "He supervises from a cage full of hay and has never missed a deadline, because he has never had one."],
+          gwen: ["<span class='hl'>GWEN</span> — the builder.", "If it runs, she probably built it. If it's broken, she's already looking at it.", "Try 'team' for the full roster."],
+          kilo: ["<span class='hl'>KILO</span> — the watchman.", "Local machine, quiet process, constant watch. Kilo doesn't talk much. Kilo doesn't need to."],
+          damon: ["<span class='hl'>DAMON</span> — the sub-grabber.", "Somewhere right now there is a dropped class on Savvy Learning with seconds to live.", "Damon has already seen it. Scroll down and try the sub-grab game — that's his Tuesday."],
+          hello: ["Hello, visitor.", "You're standing in mission control. Type 'help' and I'll show you around."],
+          hi: ["Hello, visitor.", "You're standing in mission control. Type 'help' and I'll show you around."],
+          exit: ["There is no exit. There's a scroll bar, and the rest of the page is worth it."],
+          quit: ["There is no exit. There's a scroll bar, and the rest of the page is worth it."],
+          ls: ["dossiers/  crew/  playbook/  overnight-reports/", "Start with 'projects' or 'team'."],
+          teach: ["Teaching is the day job and the foundation.", "K-8 literacy: phonics, fluency, comprehension — 10,000+ sessions and counting.", "Everything the agents do exists to protect the time I spend doing that."],
+          ruck: ["05:00. Thirty-two pound pack. Out the door before the sun.", "Discipline first — the rest of the operation is built on top of it."]
+        };
+
+        function runCommand(raw) {
+          var cmd = raw.trim().toLowerCase();
+          addLine(cmd.replace(/</g, "&lt;"), "cmd-echo");
+          if (!cmd) return;
+          history.unshift(raw);
+          histIdx = -1;
+          flushType();
+          if (cmd === "clear") {
+            termBody.innerHTML = "";
+            addLine("Terminal cleared. Type 'help' to start again.", "sys");
+            return;
+          }
+          var lines = RESPONSES[cmd] || EASTER[cmd];
+          if (lines) {
+            typeLines(lines.map(function (h) { return { html: h }; }));
+          } else {
+            var first = cmd.split(/\s+/)[0];
+            if (RESPONSES[first] || EASTER[first]) {
+              typeLines((RESPONSES[first] || EASTER[first]).map(function (h) { return { html: h }; }));
+            } else {
+              typeLines([
+                { html: "Unknown command: <span class='am'>" + cmd.replace(/</g, "&lt;") + "</span>" },
+                { html: "Type <span class='hl'>help</span> for the list. Or poke around — a few commands aren't on it." }
+              ]);
+            }
+          }
+        }
+
+        termForm.addEventListener("submit", function (e) {
+          e.preventDefault();
+          var v = termInput.value;
+          termInput.value = "";
+          runCommand(v);
+        });
+        termInput.addEventListener("keydown", function (e) {
+          if (e.key === "ArrowUp") {
+            e.preventDefault();
+            if (histIdx < history.length - 1) { histIdx++; termInput.value = history[histIdx] || ""; }
+          } else if (e.key === "ArrowDown") {
+            e.preventDefault();
+            if (histIdx > 0) { histIdx--; termInput.value = history[histIdx] || ""; }
+            else { histIdx = -1; termInput.value = ""; }
+          }
+        });
+        termBody.addEventListener("click", function () { termInput.focus(); });
+        document.querySelectorAll(".quick-cmds button").forEach(function (b) {
+          b.addEventListener("click", function () {
+            runCommand(b.getAttribute("data-cmd"));
+            termInput.focus();
+          });
+        });
+
+        // boot sequence
+        typeLines([
+          { html: "MISSION CONTROL — visitor terminal v2.4", cls: "sys" },
+          { html: "Connection established. All systems reporting.", cls: "sys" },
+          { html: "Type <span class='hl'>help</span> to see what this room can do." }
+        ]);
+
+        /* ================= SUB-GRAB GAME ================= */
+        var stage = document.getElementById("game-stage");
+        var overlay = document.getElementById("game-overlay");
+        var overlayTitle = document.getElementById("overlay-title");
+        var overlayText = document.getElementById("overlay-text");
+        var startBtn = document.getElementById("game-start-btn");
+        var msgEl = document.getElementById("game-msg");
+        var sbClaimed = document.getElementById("sb-claimed");
+        var sbMissed = document.getElementById("sb-missed");
+        var sbStreak = document.getElementById("sb-streak");
+        var sbTime = document.getElementById("sb-time");
+
+        var SUBJECTS = [
+          ["Reading L1", "25 min · starts :00"],
+          ["Reading L2", "25 min · starts :30"],
+          ["Reading L3", "25 min · starts :00"],
+          ["Reading K", "25 min · starts :30"],
+          ["Math L4", "25 min · starts :00"],
+          ["Reading L2", "25 min · starts :15"],
+          ["Reading L1", "25 min · starts :45"]
+        ];
+        var CLAIM_LINES = [
+          "Claimed. Damon sends his regards.",
+          "Snatched. That's how the board works.",
+          "Yours. The other teachers never saw it.",
+          "Claimed in time. A student gets a teacher today."
+        ];
+        var MISS_LINES = [
+          "Gone. Somebody faster took that one.",
+          "Expired. Damon wouldn't have missed.",
+          "That class just became someone else's afternoon.",
+          "Too slow. The board is unforgiving."
+        ];
+        var STREAK_LINES = { 3: "Three straight. Warming up.", 5: "Five straight. The board respects you.", 8: "Eight in a row. Damon is officially nervous.", 12: "Twelve. Unreasonable. Keep going." };
+
+        var game = null;
+
+        function setMsg(t) { msgEl.textContent = t; }
+        function updateScore() {
+          sbClaimed.textContent = game.claimed;
+          sbMissed.textContent = game.missed;
+          sbStreak.textContent = game.streak;
+          sbTime.textContent = Math.max(0, Math.ceil(game.timeLeft));
+        }
+        function floatTag(x, y, text, cls) {
+          var tag = document.createElement("div");
+          tag.className = "float-tag " + cls;
+          tag.textContent = text;
+          tag.style.left = x + "px";
+          tag.style.top = y + "px";
+          stage.appendChild(tag);
+          setTimeout(function () { tag.remove(); }, 850);
+        }
+
+        function spawnCard() {
+          var w = stage.clientWidth;
+          var cardW = window.innerWidth <= 760 ? 138 : 158;
+          var x = 8 + Math.random() * Math.max(10, w - cardW - 16);
+          var s = SUBJECTS[Math.floor(Math.random() * SUBJECTS.length)];
+          var el = document.createElement("div");
+          el.className = "class-card";
+          el.innerHTML =
+            "<div class='cc-top'><span>Savvy sub</span><span>NEW</span></div>" +
+            "<div class='cc-subj'>" + s[0] + "</div>" +
+            "<div class='cc-meta'>" + s[1] + "</div>" +
+            "<div class='cc-meta'>Click to claim</div>" +
+            "<div class='cc-bar'><i></i></div>";
+          el.style.left = x + "px";
+          el.style.top = "-110px";
+          stage.appendChild(el);
+          var card = {
+            el: el,
+            bar: el.querySelector(".cc-bar i"),
+            x: x, y: -110,
+            speed: (52 + Math.random() * 26) * game.speedFactor,
+            life: 9, maxLife: 9,
+            dead: false
+          };
+          el.addEventListener("pointerdown", function (ev) {
+            ev.preventDefault();
+            if (!game || !game.running || card.dead) return;
+            card.dead = true;
+            game.claimed++;
+            game.streak++;
+            game.bestStreak = Math.max(game.bestStreak, game.streak);
+            el.classList.add("claimed");
+            floatTag(card.x + 30, Math.max(4, card.y), "+ CLAIMED", "good");
+            setTimeout(function () { el.remove(); }, 240);
+            if (STREAK_LINES[game.streak]) setMsg(STREAK_LINES[game.streak]);
+            else setMsg(CLAIM_LINES[Math.floor(Math.random() * CLAIM_LINES.length)]);
+            updateScore();
+          });
+          game.cards.push(card);
+        }
+
+        function expireCard(card) {
+          card.dead = true;
+          game.missed++;
+          game.streak = 0;
+          card.el.classList.add("expired");
+          floatTag(card.x + 30, stage.clientHeight - 70, "EXPIRED", "bad");
+          setTimeout(function () { card.el.remove(); }, 280);
+          setMsg(MISS_LINES[Math.floor(Math.random() * MISS_LINES.length)]);
+          updateScore();
+        }
+
+        function gameLoop(ts) {
+          if (!game || !game.running) return;
+          var dt = Math.min(0.05, (ts - game.lastTs) / 1000 || 0);
+          game.lastTs = ts;
+          game.timeLeft -= dt;
+          game.elapsed += dt;
+          game.speedFactor = 1 + game.elapsed / 45; // up to ~2.3x by the end
+          game.spawnIn -= dt;
+          var spawnEvery = Math.max(0.55, 1.15 - game.elapsed * 0.011);
+          if (game.spawnIn <= 0) { spawnCard(); game.spawnIn = spawnEvery; }
+          var floor = stage.clientHeight - 40;
+          game.cards = game.cards.filter(function (c) { return !c.dead; });
+          game.cards.forEach(function (c) {
+            c.speed += 7 * dt; // everything speeds up as the shift wears on
+            c.y += c.speed * dt;
+            c.life -= dt;
+            c.el.style.transform = "translateY(" + c.y + "px)";
+            c.bar.style.width = Math.max(0, (c.life / c.maxLife) * 100) + "%";
+            if (c.life < 3) c.bar.style.background = "var(--red)";
+            else if (c.life < 5.5) c.bar.style.background = "var(--amber)";
+            if (c.y > floor || c.life <= 0) expireCard(c);
+          });
+          updateScore();
+          if (game.timeLeft <= 0) { endGame(); return; }
+          game.raf = requestAnimationFrame(gameLoop);
+        }
+
+        function startGame() {
+          // clear any leftovers
+          stage.querySelectorAll(".class-card, .float-tag").forEach(function (n) { n.remove(); });
+          game = {
+            running: true, claimed: 0, missed: 0, streak: 0, bestStreak: 0,
+            timeLeft: 60, elapsed: 0, spawnIn: 0.2, speedFactor: 1,
+            cards: [], lastTs: performance.now(), raf: null
+          };
+          overlay.style.display = "none";
+          setMsg("Shift started. The board is live — claim everything you can.");
+          updateScore();
+          game.raf = requestAnimationFrame(gameLoop);
+        }
+
+        function endGame() {
+          game.running = false;
+          if (game.raf) cancelAnimationFrame(game.raf);
+          game.cards.forEach(function (c) { c.el.remove(); });
+          game.cards = [];
+          var total = game.claimed + game.missed;
+          var pct = total ? Math.round((game.claimed / total) * 100) : 0;
+          var verdict;
+          if (pct >= 90) verdict = "Director-grade hands. Damon has filed a formal complaint.";
+          else if (pct >= 70) verdict = "Strong shift. The crew approves.";
+          else if (pct >= 45) verdict = "Respectable — and this is why the job went to an agent.";
+          else verdict = "The board ate you alive. Good news: Damon never sleeps, so you don't have to do this.";
+          overlayTitle.textContent = "Shift complete";
+          overlayText.innerHTML =
+            "<span class='final'>Claimed <b class='g'>" + game.claimed + "</b> · Missed <b class='r'>" + game.missed +
+            "</b> · Best streak <b class='g'>" + game.bestStreak + "</b><br />" + verdict +
+            "<br /><br />Shipped? Never. Claimed? Constantly.</span>";
+          startBtn.textContent = "Run it again";
+          overlay.style.display = "flex";
+          setMsg("Shift over. Final tally is on the board.");
+        }
+
+        startBtn.addEventListener("click", startGame);
+
+        /* ================= THE LOOP — NETWORK MAP ================= */
+        var loopCanvas = document.getElementById("loop-canvas");
+        var loopStage = document.getElementById("loop-stage");
+        var loopCaption = document.getElementById("loop-caption");
+        var LOOP_CAPTION_DEFAULT = "The light moving through the lines is work traveling through the system. Click or tap any dot to see what it does.";
+        if (loopCanvas && loopStage && loopCaption) {
+          var lctx = loopCanvas.getContext("2d");
+          var KIND_COLORS = {
+            input: "#ffb000",
+            coord: "#2e9bff",
+            agent: "#2dd4bf",
+            memory: "#22d3ee",
+            output: "#7dd3fc"
+          };
+          function hexA(hex, a) {
+            var r = parseInt(hex.slice(1, 3), 16);
+            var g = parseInt(hex.slice(3, 5), 16);
+            var b = parseInt(hex.slice(5, 7), 16);
+            return "rgba(" + r + "," + g + "," + b + "," + a + ")";
+          }
+
+          var loopNodes = [
+            { x: 0.07, y: 0.13, r: 9, kind: "input", label: "Voice", desc: "VOICE — I talk instead of type. A quick voice note is how most things start." },
+            { x: 0.07, y: 0.30, r: 9, kind: "input", label: "Photos", desc: "PHOTOS — a picture of a receipt, a schedule, a problem on a screen. I send it, and the system reads it." },
+            { x: 0.07, y: 0.47, r: 9, kind: "input", label: "Receipts", desc: "RECEIPTS — money in, money out. Receipts get saved and written down so nothing gets lost." },
+            { x: 0.07, y: 0.64, r: 9, kind: "input", label: "Schedule", desc: "SCHEDULE — my classes and appointments. The system keeps an eye on what is coming up." },
+            { x: 0.07, y: 0.80, r: 9, kind: "input", label: "Ideas", desc: "IDEAS — half-formed plans count too. I say them out loud and they get written down, not forgotten." },
+            { x: 0.33, y: 0.46, r: 24, kind: "coord", label: "Bubby", sub: "the chief of staff", desc: "BUBBY — my chief of staff. Everything I send lands here first. He works out what I'm actually asking for, checks what he already knows about me, and decides who should handle it." },
+            { x: 0.58, y: 0.13, r: 11, kind: "agent", label: "Damon", sub: "extra classes", desc: "DAMON — watches for extra teaching classes I can pick up and grabs them before anyone else does. He's a big reason I earn what I earn." },
+            { x: 0.58, y: 0.35, r: 11, kind: "agent", label: "Gwen", sub: "computer care", desc: "GWEN — looks after my computer. She fixes problems before I notice them, and builds the tools I ask for." },
+            { x: 0.58, y: 0.57, r: 11, kind: "agent", label: "Kilo", sub: "night watch", desc: "KILO — the night watchman. He keeps an eye on everything while I sleep." },
+            { x: 0.58, y: 0.79, r: 11, kind: "agent", label: "Bubby", sub: "the records", desc: "BUBBY, AGAIN — on top of running the show, he keeps all my records: every dollar tracked, every receipt saved, every appointment remembered." },
+            { x: 0.28, y: 0.90, r: 9, kind: "memory", label: "Saved notes", above: true, desc: "SAVED NOTES — every conversation gets written down and sorted, so nothing we talk about just disappears." },
+            { x: 0.53, y: 0.90, r: 9, kind: "memory", label: "Money log", above: true, desc: "MONEY LOG — what came in and what went out, kept up to date." },
+            { x: 0.78, y: 0.90, r: 9, kind: "memory", label: "Calendar", above: true, desc: "CALENDAR — classes, deadlines, and family plans, all in one place." },
+            { x: 0.93, y: 0.15, r: 9, kind: "output", label: "Reminders", desc: "REMINDERS — a nudge before every class, so I'm never caught off guard." },
+            { x: 0.93, y: 0.37, r: 9, kind: "output", label: "Tasks done", desc: "TASKS DONE — finished work, reported back to me in plain words." },
+            { x: 0.93, y: 0.59, r: 9, kind: "output", label: "Money tracked", desc: "MONEY TRACKED — spending and income written down as it happens." },
+            { x: 0.93, y: 0.79, r: 9, kind: "output", label: "Problems fixed", desc: "PROBLEMS FIXED — computer trouble sorted out, often before I even notice it." }
+          ];
+          loopNodes.forEach(function (n) { n.glow = 0; });
+
+          // edges: a -> b, with an optional curve control point (fractions)
+          var loopEdges = [];
+          function le(a, b, cx, cy) { loopEdges.push({ a: a, b: b, cx: cx, cy: cy }); }
+          [0, 1, 2, 3, 4].forEach(function (i) { le(i, 5); });           // me -> Bubby
+          [6, 7, 8, 9].forEach(function (i) { le(5, i); });              // Bubby -> the specialists
+          le(6, 13); le(6, 15); le(7, 16); le(7, 14);                    // specialists -> results
+          le(8, 13); le(8, 16); le(9, 15); le(9, 14);
+          le(6, 10); le(6, 11); le(7, 10); le(7, 12);                    // specialists -> memory
+          le(8, 11); le(8, 12); le(9, 10); le(9, 11);
+          le(10, 14); le(11, 15); le(12, 13);                            // memory -> results
+          le(10, 5, 0.16, 0.86);                                         // memory feeds back to Bubby —
+          le(11, 5, 0.38, 0.80);                                         // the part that makes it a loop
+          le(12, 5, 0.62, 0.86);
+          le(13, 0, 0.50, -0.10);                                        // results come back to me,
+          le(10, 4, 0.10, 0.97);                                         // and it all starts again
+
+          var loopSelected = -1;
+          var loopPulses = [];
+          var loopRunning = false;
+          var loopLastTs = 0;
+          var loopSpawnTimer = 0;
+
+          function loopIsConnected(i) {
+            for (var k = 0; k < loopEdges.length; k++) {
+              var e = loopEdges[k];
+              if ((e.a === loopSelected && e.b === i) || (e.b === loopSelected && e.a === i)) return true;
+            }
+            return false;
+          }
+          function loopPoint(e, t, W, H) {
+            var A = loopNodes[e.a], B = loopNodes[e.b];
+            var ax = A.x * W, ay = A.y * H, bx = B.x * W, by = B.y * H;
+            if (e.cx !== undefined) {
+              var cx = e.cx * W, cy = e.cy * H, u = 1 - t;
+              return { x: u * u * ax + 2 * u * t * cx + t * t * bx, y: u * u * ay + 2 * u * t * cy + t * t * by };
+            }
+            return { x: ax + (bx - ax) * t, y: ay + (by - ay) * t };
+          }
+          function loopSpawnPulse(at) {
+            var e = loopEdges[Math.floor(Math.random() * loopEdges.length)];
+            loopPulses.push({ e: e, t: (at !== undefined ? at : 0), speed: 0.35 + Math.random() * 0.4, rev: Math.random() < 0.4 });
+          }
+
+          function loopDraw(W, H) {
+            lctx.clearRect(0, 0, W, H);
+            // connections
+            loopEdges.forEach(function (e) {
+              var A = loopNodes[e.a], B = loopNodes[e.b];
+              lctx.beginPath();
+              lctx.moveTo(A.x * W, A.y * H);
+              if (e.cx !== undefined) lctx.quadraticCurveTo(e.cx * W, e.cy * H, B.x * W, B.y * H);
+              else lctx.lineTo(B.x * W, B.y * H);
+              if (loopSelected !== -1 && (e.a === loopSelected || e.b === loopSelected)) {
+                lctx.strokeStyle = hexA(KIND_COLORS[loopNodes[loopSelected].kind], 0.85);
+                lctx.lineWidth = 1.8;
+              } else {
+                lctx.strokeStyle = "rgba(110,160,220," + (loopSelected === -1 ? 0.16 : 0.05) + ")";
+                lctx.lineWidth = 1;
+              }
+              lctx.stroke();
+            });
+            // traveling pulses of light
+            loopPulses.forEach(function (p) {
+              var pt = loopPoint(p.e, p.rev ? 1 - p.t : p.t, W, H);
+              var col = KIND_COLORS[loopNodes[p.rev ? p.e.a : p.e.b].kind];
+              lctx.beginPath();
+              lctx.arc(pt.x, pt.y, 2.6, 0, Math.PI * 2);
+              lctx.fillStyle = col;
+              lctx.shadowColor = col;
+              lctx.shadowBlur = 10;
+              lctx.fill();
+              lctx.shadowBlur = 0;
+            });
+            // nodes
+            var fs = Math.max(9.5, Math.min(12.5, W / 88));
+            loopNodes.forEach(function (n, i) {
+              var px = n.x * W, py = n.y * H;
+              var col = KIND_COLORS[n.kind];
+              var dim = loopSelected !== -1 && i !== loopSelected && !loopIsConnected(i);
+              if (n.glow > 0.03 || i === loopSelected) {
+                lctx.beginPath();
+                lctx.arc(px, py, n.r + 8 + n.glow * 8, 0, Math.PI * 2);
+                lctx.fillStyle = hexA(col, 0.10 + n.glow * 0.22 + (i === loopSelected ? 0.12 : 0));
+                lctx.fill();
+              }
+              lctx.beginPath();
+              lctx.arc(px, py, n.r, 0, Math.PI * 2);
+              lctx.fillStyle = "#0d1119";
+              lctx.fill();
+              lctx.lineWidth = i === loopSelected ? 2.6 : 1.8;
+              lctx.strokeStyle = hexA(col, dim ? 0.35 : 1);
+              lctx.shadowColor = col;
+              lctx.shadowBlur = (n.kind === "coord" ? 18 : 8) + n.glow * 16;
+              lctx.stroke();
+              lctx.shadowBlur = 0;
+              lctx.beginPath();
+              lctx.arc(px, py, Math.max(2.5, n.r * 0.32), 0, Math.PI * 2);
+              lctx.fillStyle = hexA(col, dim ? 0.4 : 0.9);
+              lctx.fill();
+              // label
+              var lx = Math.max(36, Math.min(W - 36, px));
+              var ly = n.above ? py - n.r - 9 : py + n.r + fs + 5;
+              lctx.font = "700 " + fs + "px 'JetBrains Mono', ui-monospace, monospace";
+              lctx.textAlign = "center";
+              lctx.fillStyle = dim ? "rgba(132,150,173,0.4)" : "#d6e4f5";
+              lctx.fillText(n.label, lx, ly);
+              if (n.sub) {
+                lctx.font = (fs - 1.5) + "px 'JetBrains Mono', ui-monospace, monospace";
+                lctx.fillStyle = dim ? "rgba(132,150,173,0.3)" : "rgba(132,150,173,0.95)";
+                lctx.fillText(n.sub, lx, ly + fs + 2);
+              }
+            });
+          }
+
+          function loopTick(ts) {
+            if (!loopRunning) return;
+            var W = loopStage.clientWidth, H = loopStage.clientHeight;
+            var dt = Math.min(0.05, (ts - loopLastTs) / 1000 || 0.016);
+            loopLastTs = ts;
+            loopSpawnTimer -= dt;
+            if (loopSpawnTimer <= 0 && loopPulses.length < 30) {
+              loopSpawnPulse();
+              loopSpawnTimer = 0.22 + Math.random() * 0.25;
+            }
+            loopPulses = loopPulses.filter(function (p) {
+              p.t += p.speed * dt;
+              if (p.t >= 1) {
+                loopNodes[p.rev ? p.e.a : p.e.b].glow = 1;
+                return false;
+              }
+              return true;
+            });
+            loopNodes.forEach(function (n) { n.glow = Math.max(0, n.glow - dt * 1.6); });
+            loopDraw(W, H);
+            requestAnimationFrame(loopTick);
+          }
+
+          function loopSize() {
+            var dpr = window.devicePixelRatio || 1;
+            var W = loopStage.clientWidth, H = loopStage.clientHeight;
+            loopCanvas.width = Math.round(W * dpr);
+            loopCanvas.height = Math.round(H * dpr);
+            lctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            if (reducedMotion || !loopRunning) loopDraw(W, H);
+          }
+          window.addEventListener("resize", loopSize);
+
+          loopCanvas.addEventListener("click", function (ev) {
+            var rect = loopCanvas.getBoundingClientRect();
+            var mx = ev.clientX - rect.left, my = ev.clientY - rect.top;
+            var W = loopStage.clientWidth, H = loopStage.clientHeight;
+            var best = -1, bestD = Infinity;
+            loopNodes.forEach(function (n, i) {
+              var dx = n.x * W - mx, dy = n.y * H - my;
+              var d = Math.sqrt(dx * dx + dy * dy);
+              if (d < n.r + 18 && d < bestD) { bestD = d; best = i; }
+            });
+            loopSelected = best;
+            if (best >= 0) {
+              loopNodes[best].glow = 1;
+              loopCaption.textContent = loopNodes[best].desc;
+            } else {
+              loopCaption.textContent = LOOP_CAPTION_DEFAULT;
+            }
+            if (reducedMotion || !loopRunning) loopDraw(W, H);
+          });
+
+          // seed a few pulses so even the first still frame shows work in flight
+          for (var s = 0; s < 10; s++) loopSpawnPulse(Math.random());
+          loopSize();
+
+          if (!reducedMotion) {
+            if ("IntersectionObserver" in window) {
+              var lio = new IntersectionObserver(function (entries) {
+                entries.forEach(function (en) {
+                  if (en.isIntersecting && !loopRunning) {
+                    loopRunning = true;
+                    loopLastTs = performance.now();
+                    requestAnimationFrame(loopTick);
+                  } else if (!en.isIntersecting) {
+                    loopRunning = false;
+                  }
+                });
+              }, { threshold: 0.12 });
+              lio.observe(loopStage);
+            } else {
+              loopRunning = true;
+              loopLastTs = performance.now();
+              requestAnimationFrame(loopTick);
+            }
+          }
+        }
+      })();
+    </script>
+  </body>
+</html>
